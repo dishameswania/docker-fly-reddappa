@@ -24,12 +24,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Setup JFrog CLI with OIDC
+      - name: Setup JFrog Fly
+        uses: jfrog/fly-action@v1
+        with:
+          url: https://supportfly.jfrog.io
+
+      - name: Setup JFrog CLI
         uses: jfrog/setup-jfrog-cli@v4
         env:
           JF_URL: https://supportfly.jfrog.io
         with:
-          oidc-provider-name: fly-action
+          # IMPORTANT: This must match the OIDC provider name configured in JFrog Fly
+          # To find it: JFrog Platform → Administration → Manage Integrations → OpenID Connect
+          # If not configured, you'll need to create it first
+          oidc-provider-name: ${{ secrets.FLY_OIDC_PROVIDER_NAME || 'github-actions' }}
+          oidc-audience: sigstore
 
       - name: Log in to Docker registry
         if: github.event_name != 'pull_request'
@@ -65,3 +74,4 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           jf docker scan supportfly.jfrog.io/${{ secrets.FLY_DOCKER_REPO || 'docker-local' }}/${{ secrets.DOCKER_IMAGE_NAME || 'myapp' }}:${{ github.sha }}
+
