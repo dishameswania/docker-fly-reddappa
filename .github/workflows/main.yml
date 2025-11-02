@@ -1,4 +1,3 @@
-
 name: Docker Build and Publish
 
 on:
@@ -64,7 +63,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -80,3 +79,4 @@ jobs:
           else
             echo "Scan skipped - JFrog CLI not available"
           fi
+
