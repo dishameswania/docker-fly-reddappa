@@ -29,6 +29,18 @@ jobs:
         with:
           url: https://supportfly.jfrog.io
 
+      - name: Configure Docker authentication
+        if: github.event_name != 'pull_request'
+        run: |
+          # Check if JFrog CLI is available from fly-action
+          if command -v jf &> /dev/null; then
+            echo "JFrog CLI found - configuring Docker authentication..."
+            jf docker config supportfly.jfrog.io
+          else
+            echo "Warning: JFrog CLI not available. Docker push may fail."
+            echo "Checking if fly-action configured Docker automatically..."
+          fi
+
       - name: Build Docker image
         if: github.event_name != 'pull_request'
         run: |
@@ -39,9 +51,11 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           # Push the Docker image to Fly registry
-          # The fly-action should have configured Docker authentication automatically
-          docker push supportfly.jfrog.io/docker/myapp:${{ github.sha }}
-          docker push supportfly.jfrog.io/docker/myapp:latest
+          echo "Pushing image with SHA tag..."
+          docker push supportfly.jfrog.io/docker/myapp:${{ github.sha }} || (echo "Push failed - checking authentication" && exit 1)
+          echo "Pushing image with latest tag..."
+          docker push supportfly.jfrog.io/docker/myapp:latest || (echo "Push failed - checking authentication" && exit 1)
+          echo "✅ Image pushed successfully!"
 
       - name: Build Docker image (PR)
         if: github.event_name == 'pull_request'
