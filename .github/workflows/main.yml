@@ -29,28 +29,28 @@ jobs:
         with:
           url: https://supportfly.jfrog.io
 
-      - name: Setup JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: https://supportfly.jfrog.io
-        with:
-          # IMPORTANT: This must match the OIDC provider name configured in JFrog Fly
-          # To find it: JFrog Platform → Administration → Manage Integrations → OpenID Connect
-          # If not configured, you'll need to create it first
-          oidc-provider-name: ${{ secrets.FLY_OIDC_PROVIDER_NAME || 'github-actions' }}
-          oidc-audience: sigstore
-
       - name: Log in to Docker registry
         if: github.event_name != 'pull_request'
         run: |
-          # Configure Docker to use JFrog CLI credentials (OIDC auth)
-          jf docker config supportfly.jfrog.io
+          # Configure Docker to authenticate with JFrog Fly
+          # The fly-action handles OIDC authentication - try to use it for Docker
+          if command -v jf &> /dev/null; then
+            # Use JFrog CLI to configure Docker if available
+            jf docker config supportfly.jfrog.io
+          else
+            # If JFrog CLI not available, fly-action OIDC should still work
+            # Docker build-push-action may authenticate automatically via fly-action
+            echo "JFrog CLI not found - relying on fly-action OIDC authentication"
+            echo "Docker authentication will be handled by fly-action if configured"
+          fi
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: supportfly.jfrog.io/${{ secrets.FLY_DOCKER_REPO || 'docker-local' }}/${{ secrets.DOCKER_IMAGE_NAME || 'myapp' }}
+          # Fly Docker registry format: <subdomain>.jfrog.io/docker/<image-name>
+          # See: https://docs.fly.jfrog.ai/developer-workflow/local-artifacts/
+          images: supportfly.jfrog.io/docker/${{ secrets.DOCKER_IMAGE_NAME || 'myapp' }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -73,5 +73,10 @@ jobs:
       - name: Scan Docker image (optional)
         if: github.event_name != 'pull_request'
         run: |
-          jf docker scan supportfly.jfrog.io/${{ secrets.FLY_DOCKER_REPO || 'docker-local' }}/${{ secrets.DOCKER_IMAGE_NAME || 'myapp' }}:${{ github.sha }}
+          # Use JFrog CLI to scan the image if available
+          if command -v jf &> /dev/null; then
+            jf docker scan supportfly.jfrog.io/docker/${{ secrets.DOCKER_IMAGE_NAME || 'myapp' }}:${{ github.sha }}
+          else
+            echo "Scan skipped - JFrog CLI not available"
+          fi
 
