@@ -1,0 +1,24 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write  # Required for Fly authentication
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: JFrog Fly - Configure all your package managers to work with Fly registry
+        uses: jfrog/fly-action@v1
+        with:
+          url: https://supportfly.jfrog.io
+      - name: Build Docker image
+        run: docker build -t supportfly.jfrog.io/docker/my-app:${{ github.sha }} .
+      - name: Push Docker image
+        run: docker push supportfly.jfrog.io/docker/my-app:${{ github.sha }}
