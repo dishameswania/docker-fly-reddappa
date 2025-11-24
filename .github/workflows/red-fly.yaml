@@ -19,6 +19,6 @@ jobs:
         with:
           url: https://supportfly.jfrog.io
       - name: Build Docker image
-        run: docker build -t supportfly.jfrog.io/docker/reddappa-app:${{ github.sha }} .
+        run: docker build -t supportfly.jfrog.io/docker/reddappa2-app:${{ github.sha }} .
       - name: Push Docker image
-        run: docker push supportfly.jfrog.io/docker/reddappa-app:${{ github.sha }}
+        run: docker push supportfly.jfrog.io/docker/reddappa2-app:${{ github.sha }}
