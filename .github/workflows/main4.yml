@@ -1,120 +1,21 @@
-name: Docker Build and Publish
-
+name: updates-included docker push
 on:
   push:
-    branches:
-      - main
-      - master
-    tags:
-      - 'v*'
-  pull_request:
-  workflow_dispatch:
-
+    branches: [main]
 permissions:
   contents: read
   id-token: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Setup JFrog Fly
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: JFrog Fly - Configure all your package managers to work with Fly registry
         uses: jfrog/fly-action@v1
         with:
           url: https://supportfly.jfrog.io
-
-      - name: Configure Docker authentication
-        run: |
-          # Check if JFrog CLI is available from fly-action
-          if command -v jf &> /dev/null; then
-            echo "✅ JFrog CLI found - configuring Docker authentication..."
-            jf docker config supportfly.jfrog.io
-            echo "Docker authentication configured"
-          else
-            echo "⚠️  Warning: JFrog CLI not available from fly-action"
-            echo "Docker push will likely fail without authentication"
-          fi
-
       - name: Build Docker image
-        run: |
-          # Build the Docker image with appropriate tags
-          echo "Building Docker image..."
-          BUILD_NUMBER=${{ github.run_number }}
-          
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # For PRs: tag with build number
-            echo "Building for PR #${{ github.event.pull_request.number }}, build number: $BUILD_NUMBER"
-            docker build -f Dockerfile \
-              -t supportfly.jfrog.io/docker/myapp:build-$BUILD_NUMBER \
-              -t supportfly.jfrog.io/docker/myapp:pr-${{ github.event.pull_request.number }} \
-              -t supportfly.jfrog.io/docker/myapp:${{ github.sha }} .
-          else
-            # For pushes to main/master: tag with SHA and latest
-            echo "Building for branch push, build number: $BUILD_NUMBER"
-            docker build -f Dockerfile \
-              -t supportfly.jfrog.io/docker/myapp:${{ github.sha }} \
-              -t supportfly.jfrog.io/docker/myapp:build-$BUILD_NUMBER \
-              -t supportfly.jfrog.io/docker/myapp:latest .
-          fi
-          echo "✅ Image built successfully"
-
+        run: docker build -t supportfly.jfrog.io/docker/training-app:${{ github.sha }} .
       - name: Push Docker image
-        run: |
-          set -e  # Exit on any error
-          BUILD_NUMBER=${{ github.run_number }}
-          
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # For PRs: push with build number and PR number tags
-            echo "Pushing PR image with build number: $BUILD_NUMBER"
-            
-            echo "Pushing build-$BUILD_NUMBER tag..."
-            docker push supportfly.jfrog.io/docker/myapp:build-$BUILD_NUMBER || (echo "❌ Failed to push build-$BUILD_NUMBER tag" && exit 1)
-            
-            echo "Pushing pr-${{ github.event.pull_request.number }} tag..."
-            docker push supportfly.jfrog.io/docker/myapp:pr-${{ github.event.pull_request.number }} || (echo "❌ Failed to push pr-${{ github.event.pull_request.number }} tag" && exit 1)
-            
-            echo "Pushing SHA tag..."
-            docker push supportfly.jfrog.io/docker/myapp:${{ github.sha }} || (echo "❌ Failed to push SHA tag" && exit 1)
-            
-            echo "✅ All PR tags pushed successfully"
-          else
-            # For pushes to main/master: push with SHA, build number, and latest tags
-            echo "Pushing branch image with build number: $BUILD_NUMBER"
-            
-            echo "Pushing SHA tag..."
-            docker push supportfly.jfrog.io/docker/myapp:${{ github.sha }} || (echo "❌ Failed to push SHA tag" && exit 1)
-            
-            echo "Pushing build-$BUILD_NUMBER tag..."
-            docker push supportfly.jfrog.io/docker/myapp:build-$BUILD_NUMBER || (echo "❌ Failed to push build-$BUILD_NUMBER tag" && exit 1)
-            
-            echo "Pushing latest tag..."
-            docker push supportfly.jfrog.io/docker/myapp:latest || (echo "❌ Failed to push latest tag" && exit 1)
-            
-            echo "✅ All branch tags pushed successfully"
-          fi
-
-      - name: Verify image was pushed
-        run: |
-          BUILD_NUMBER=${{ github.run_number }}
-          echo "Verifying image exists in registry..."
-          
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            VERIFY_TAG="build-$BUILD_NUMBER"
-          else
-            VERIFY_TAG="${{ github.sha }}"
-          fi
-          
-          if docker pull supportfly.jfrog.io/docker/myapp:$VERIFY_TAG > /dev/null 2>&1; then
-            echo "✅ Verified: Image exists in registry with tag: $VERIFY_TAG"
-          else
-            echo "❌ Verification failed: Image not found in registry with tag: $VERIFY_TAG"
-            echo "The push may have appeared to succeed but the image is not accessible"
-            exit 1
-          fi
-
+        run: docker push supportfly.jfrog.io/docker/training-app:${{ github.sha }}
